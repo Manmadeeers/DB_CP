@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nutrition Planner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-header__title">Nutrition Planner</div>
+      <div class="app-header__user" id="currentUserInfo"></div>
+      <button class="btn btn-outline" id="logoutBtn" style="display:none">Выйти</button>
+    </header>
+
+    <main class="app-main">
+      <!-- AUTH -->
+      <section id="authSection" class="card auth-card">
+        <div class="tabs">
+          <button class="tab tab--active" data-tab="loginTab">Вход</button>
+          <button class="tab" data-tab="registerTab">Регистрация</button>
+        </div>
+
+        <div id="loginTab" class="tab-panel tab-panel--active">
+          <form id="loginForm" class="form">
+            <div class="form__group">
+              <label>Логин</label>
+              <input type="text" name="username" required />
+            </div>
+            <div class="form__group">
+              <label>Пароль</label>
+              <input type="password" name="password" required />
+            </div>
+            <button class="btn btn-primary" type="submit">Войти</button>
+          </form>
+        </div>
+
+        <div id="registerTab" class="tab-panel">
+          <form id="registerForm" class="form">
+            <div class="form__group">
+              <label>Логин</label>
+              <input type="text" name="username" required />
+            </div>
+            <div class="form__group">
+              <label>Пароль</label>
+              <input type="password" name="password" required />
+            </div>
+            <button class="btn btn-primary" type="submit">Зарегистрироваться</button>
+          </form>
+        </div>
+
+        <div id="authMessage" class="message"></div>
+      </section>
+
+      <!-- DASHBOARD -->
+      <section id="dashboardSection" style="display:none">
+        <nav class="nav">
+          <button class="nav__item nav__item--active" data-view="userView">Пользователь</button>
+          <button class="nav__item" data-view="adminView" id="adminNavBtn" style="display:none">
+            Админ-панель
+          </button>
+        </nav>
+
+        <!-- USER VIEW -->
+        <section id="userView" class="view view--active">
+          <div class="grid-2">
+            <!-- Профиль -->
+            <div class="card">
+              <h2>Профиль</h2>
+              <button class="btn btn-small" id="loadProfileBtn">Загрузить профиль</button>
+              <form id="profileForm" class="form form--compact">
+                <div class="form__group">
+                  <label>ID</label>
+                  <input type="text" id="profileId" disabled />
+                </div>
+                <div class="form__group">
+                  <label>Логин</label>
+                  <input type="text" id="profileUsername" disabled />
+                </div>
+                <div class="form__group">
+                  <label>Дневной лимит калорий</label>
+                  <input type="number" id="profileDaily" />
+                </div>
+                <div class="form__group">
+                  <label>Недельный лимит калорий</label>
+                  <input type="number" id="profileWeekly" />
+                </div>
+                <button class="btn btn-primary btn-small" type="submit">Сохранить</button>
+              </form>
+            </div>
+
+            <!-- Вес -->
+            <div class="card">
+              <h2>История веса</h2>
+              <form id="addWeightForm" class="form form--inline">
+                <input type="date" name="date" required />
+                <input type="number" name="weight" step="0.1" placeholder="Вес" required />
+                <button class="btn btn-small" type="submit">Добавить</button>
+              </form>
+              <table class="table" id="weightTable">
+                <thead>
+                  <tr><th>Дата</th><th>Вес</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Продукты -->
+            <div class="card">
+              <h2>Продукты</h2>
+              <div class="form form--inline">
+                <input type="text" id="productSearchInput" placeholder="Поиск по имени" />
+                <button class="btn btn-small" id="searchProductsBtn">Найти</button>
+                <button class="btn btn-small btn-outline" id="loadProductsBtn">Все</button>
+              </div>
+              <table class="table" id="productsTable">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Название</th><th>Ккал/порция</th><th>Порция</th><th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+
+              <h3>Создать свой продукт</h3>
+              <form id="createProductForm" class="form form--compact">
+                <input type="text" name="name" placeholder="Название" required />
+                <input type="number" name="calories" placeholder="Ккал" required />
+                <input type="number" step="0.1" name="portion_size" placeholder="Размер порции" required />
+                <input type="text" name="portion_unit" placeholder="Ед. изм. (г, мл...)" required />
+                <input type="number" step="0.1" name="protein" placeholder="Белки" />
+                <input type="number" step="0.1" name="fat" placeholder="Жиры" />
+                <input type="number" step="0.1" name="carbs" placeholder="Углеводы" />
+                <label class="checkbox">
+                  <input type="checkbox" name="is_public" /> Публичный
+                </label>
+                <button class="btn btn-primary btn-small" type="submit">Создать</button>
+              </form>
+            </div>
+
+            <!-- Меню -->
+            <div class="card">
+              <h2>Меню</h2>
+              <form id="addToMenuForm" class="form form--inline">
+                <input type="number" name="product_id" placeholder="ID продукта" required />
+                <button class="btn btn-small" type="submit">Добавить в меню</button>
+              </form>
+              <form id="removeFromMenuForm" class="form form--inline">
+                <input type="number" name="product_id" placeholder="ID продукта" required />
+                <button class="btn btn-small btn-outline" type="submit">Удалить из меню</button>
+              </form>
+              <h3>Меню на день/неделю</h3>
+              <form id="generateWeekMenuForm" class="form form--inline">
+                <input type="date" name="week_start" required />
+                <button class="btn btn-small" type="submit">Сгенерировать неделю</button>
+              </form>
+              <form id="getWeekMenuForm" class="form form--inline">
+                <input type="date" name="week_start" required />
+                <button class="btn btn-small btn-outline" type="submit">Показать неделю</button>
+              </form>
+              <form id="getDayMenuForm" class="form form--inline">
+                <input type="date" name="date" required />
+                <button class="btn btn-small btn-outline" type="submit">Показать день</button>
+              </form>
+              <form id="regenerateDayForm" class="form form--inline">
+                <input type="date" name="date" required />
+                <button class="btn btn-small" type="submit">Перегенерировать день</button>
+              </form>
+              <table class="table" id="menuTable">
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Продукт</th>
+                    <th>Порция</th>
+                    <th>Ккал/порция</th>
+                    <th>Кол-во</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Потребление -->
+            <div class="card">
+              <h2>Потреблённая еда</h2>
+              <form id="addConsumedForm" class="form form--inline">
+                <input type="number" name="product_id" placeholder="ID продукта" required />
+                <input type="number" step="0.1" name="quantity" placeholder="Кол-во порций" required />
+                <input type="date" name="consumed_at" required />
+                <button class="btn btn-small" type="submit">Добавить</button>
+              </form>
+              <form id="getDailyConsumptionForm" class="form form--inline">
+                <input type="date" name="date" required />
+                <button class="btn btn-small btn-outline" type="submit">Показать за день</button>
+              </form>
+              <table class="table" id="consumptionTable">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Продукт</th><th>Кол-во</th><th>Ккал</th><th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Отчёты -->
+            <div class="card">
+              <h2>Отчёты</h2>
+              <form id="dailyReportForm" class="form form--inline">
+                <input type="date" name="date" required />
+                <button class="btn btn-small" type="submit">Дневной отчёт</button>
+                <button class="btn btn-small btn-outline" id="caloriesProgressBtn" type="button">
+                  Прогресс по калориям
+                </button>
+              </form>
+              <form id="weeklyReportForm" class="form form--inline">
+                <input type="date" name="week_start" required />
+                <button class="btn btn-small" type="submit">Недельный отчёт</button>
+                <button class="btn btn-small btn-outline" id="weightReportBtn" type="button">
+                  Отчёт по весу
+                </button>
+              </form>
+              <div class="grid-2">
+                <div>
+                  <h3>Дневной отчёт</h3>
+                  <table class="table" id="dailyReportTable">
+                    <thead>
+                      <tr>
+                        <th>Дата</th>
+                        <th>Ккал всего</th>
+                        <th>Дневной лимит</th>
+                        <th>% от лимита</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div>
+                  <h3>Недельный отчёт</h3>
+                  <table class="table" id="weeklyReportTable">
+                    <thead>
+                      <tr>
+                        <th>Дата</th>
+                        <th>Ккал всего</th>
+                        <th>Дневной лимит</th>
+                        <th>% от лимита</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="message" id="reportInfo"></div>
+            </div>
+          </div>
+
+          <!-- Экспорт продуктов пользователя -->
+          <div class="card">
+            <h2>Экспорт моих продуктов (JSON)</h2>
+            <button class="btn btn-small" id="exportUserProductsBtn">Экспортировать</button>
+            <textarea id="userProductsExportArea" class="textarea" rows="6"></textarea>
+          </div>
+        </section>
+
+        <!-- ADMIN VIEW -->
+        <section id="adminView" class="view">
+          <div class="grid-2">
+            <!-- Пользователи -->
+            <div class="card">
+              <h2>Пользователи</h2>
+              <button class="btn btn-small" id="loadUsersBtn">Обновить список</button>
+              <button class="btn btn-small btn-outline" id="exportUsersBtn">Экспорт в JSON</button>
+              <table class="table" id="usersTable">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Логин</th><th>Роль</th><th>Дневной</th><th>Недельный</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+
+              <h3>Создать пользователя</h3>
+              <form id="createUserForm" class="form form--compact">
+                <input type="text" name="username" placeholder="Логин" required />
+                <input type="password" name="password" placeholder="Пароль" required />
+                <input type="number" name="daily_cal_limit" placeholder="Дневной лимит" required />
+                <input type="number" name="weekly_cal_limit" placeholder="Недельный лимит" required />
+                <button class="btn btn-primary btn-small" type="submit">Создать</button>
+              </form>
+
+              <h3>Создать админа</h3>
+              <form id="createAdminForm" class="form form--compact">
+                <input type="text" name="username" placeholder="Логин" required />
+                <input type="password" name="password" placeholder="Пароль" required />
+                <input type="number" name="daily_cal_limit" placeholder="Дневной лимит" />
+                <input type="number" name="weekly_cal_limit" placeholder="Недельный лимит" />
+                <button class="btn btn-primary btn-small" type="submit">Создать админа</button>
+              </form>
+
+              <h3>Обновить лимиты пользователя</h3>
+              <form id="updateUserForm" class="form form--inline">
+                <input type="number" name="user_id" placeholder="ID" required />
+                <input type="number" name="daily_cal_limit" placeholder="Дневной" required />
+                <input type="number" name="weekly_cal_limit" placeholder="Недельный" required />
+                <button class="btn btn-small" type="submit">Обновить</button>
+              </form>
+
+              <h3>Удаление</h3>
+              <form id="deleteUserForm" class="form form--inline">
+                <input type="number" name="user_id" placeholder="ID пользователя" required />
+                <button class="btn btn-small btn-outline" type="submit">Удалить пользователя</button>
+              </form>
+              <form id="deleteAdminForm" class="form form--inline">
+                <input type="number" name="admin_id" placeholder="ID админа" required />
+                <button class="btn btn-small btn-outline" type="submit">Удалить админа</button>
+              </form>
+
+              <textarea id="usersExportArea" class="textarea" rows="6"></textarea>
+            </div>
+
+            <!-- Продукты (админ) -->
+            <div class="card">
+              <h2>Продукты (админ)</h2>
+              <button class="btn btn-small" id="exportAllProductsBtn">Экспорт всех продуктов</button>
+              <button class="btn btn-small btn-outline" id="importProductsBtn">Импорт продуктов</button>
+              <textarea id="productsImportExportArea" class="textarea" rows="10"
+                placeholder="JSON массив продуктов"></textarea>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="globalMessage" class="toast" style="display:none"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
+

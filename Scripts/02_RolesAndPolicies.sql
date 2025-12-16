@@ -1,3 +1,4 @@
+
 CREATE ROLE app_admin
 	LOGIN
 	PASSWORD 'Strong_admin_pass123!';

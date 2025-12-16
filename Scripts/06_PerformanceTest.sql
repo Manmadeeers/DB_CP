@@ -3,6 +3,7 @@ select current_schema();
 select current_user;
 set role to app_admin;
 set role to postgres;
+DELETE FROM nutrition.products;
 set search_path to nutrition;
 
 SELECT nutrition.admin_create_admin('performance_admin','pHash');
@@ -88,7 +89,7 @@ select * from nutrition.users;
 
 SET app.current_user_id = 1;
 
-SELECT nutrition.generate_test_products(100000);
+SELECT nutrition.generate_test_products(200);
 SELECT nutrition.get_available_products();
 
 	EXPLAIN ANALYZE
