@@ -1,25 +1,32 @@
-REVOKE ALL ON FUNCTION nutrition.get_my_profile() FROM PUBLIC, app_admin,app_user;
-REVOKE ALL ON FUNCTION nutrition.update_my_profile(INT, INT) FROM PUBLIC,app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_weight_history() FROM PUBLIC,app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.add_weight_record(DATE, NUMERIC) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_available_products() FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.create_product(TEXT, INT, NUMERIC, TEXT, NUMERIC, NUMERIC, NUMERIC, BOOLEAN) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.update_product(INT, TEXT, INT, NUMERIC, TEXT, NUMERIC, NUMERIC, NUMERIC, BOOLEAN) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.delete_product(INT) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.import_products(JSONB) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.export_products() FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.add_product_to_menu(INT) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.remove_product_from_menu(INT) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.add_consumed_food(INT, NUMERIC, DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.remove_consumed_food(INT) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_daily_consumption(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_calorie_progress(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.generate_weekly_menu(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_weekly_menu(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_daily_menu(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.regenerate_day(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_daily_report(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_weekly_report(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.get_weight_report(DATE) FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.export_user_data() FROM PUBLIC, app_admin, app_user;
-REVOKE ALL ON FUNCTION nutrition.import_user_data(JSONB) FROM PUBLIC, app_admin, app_user;
+GRANT USAGE ON SCHEMA nutrition TO app_user, app_admin;
+REVOKE ALL ON nutrition.users FROM app_user, app_admin;
+REVOKE ALL ON nutrition.products FROM app_user, app_admin;
+REVOKE ALL ON nutrition.menu_items FROM app_user, app_admin;
+REVOKE ALL ON nutrition.weight_history FROM app_user, app_admin;
+
+GRANT EXECUTE ON FUNCTION
+    nutrition.get_my_profile(),
+    nutrition.update_my_profile(INT, INT),
+    nutrition.get_weight_history(),
+    nutrition.add_weight_record(DATE, NUMERIC),
+    nutrition.get_available_products(),
+    nutrition.create_product(TEXT, INT, NUMERIC, TEXT, NUMERIC, NUMERIC, NUMERIC, BOOLEAN),
+    nutrition.update_product(INT, TEXT, INT, NUMERIC, TEXT, NUMERIC, NUMERIC, NUMERIC, BOOLEAN),
+    nutrition.delete_product(INT),
+    nutrition.add_product_to_menu(INT),
+    nutrition.remove_product_from_menu(INT)
+TO app_user;
+
+GRANT EXECUTE ON FUNCTION
+    nutrition.admin_create_user(TEXT, TEXT, INT, INT),
+    nutrition.admin_update_user(INT, INT, INT),
+    nutrition.admin_delete_user(INT),
+    nutrition.admin_create_admin(TEXT, TEXT, INT, INT),
+    nutrition.admin_delete_admin(INT)
+TO app_admin;
+
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA nutrition TO app_user, app_admin;
+
+REVOKE UPDATE (role, password_hash)
+ON nutrition.users
+FROM PUBLIC, app_user, app_admin;

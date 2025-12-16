@@ -1,3 +1,390 @@
+CREATE OR REPLACE FUNCTION nutrition.user_logout()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+BEGIN
+    -- Обнуляем переменные сессии
+    PERFORM set_config('app.current_user_id', NULL, false);
+    PERFORM set_config('app.current_user_role', NULL, false);
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'Logout successful'
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Logout failed: ' || SQLERRM
+    );
+END;
+$$;
+
+
+
+CREATE OR REPLACE FUNCTION nutrition.user_login(
+    p_username TEXT,
+    p_password TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+DECLARE
+    stored_hash TEXT;
+    user_id INT;
+    user_role TEXT;
+BEGIN
+    -- Получаем хэш пароля и данные пользователя
+    SELECT id, password_hash, role INTO user_id, stored_hash, user_role
+    FROM nutrition.users
+    WHERE username = p_username;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid username or password'
+        );
+    END IF;
+
+    -- Проверка пароля (используем crypt)
+    IF crypt(p_password, stored_hash) <> stored_hash THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid username or password'
+        );
+    END IF;
+
+    -- Устанавливаем переменные сессии
+    PERFORM set_config('app.current_user_id', user_id::TEXT, false);
+    PERFORM set_config('app.current_user_role', user_role, false);
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'Login successful',
+        'user', jsonb_build_object(
+            'id', user_id,
+            'username', p_username,
+            'role', user_role
+        )
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Login failed: ' || SQLERRM
+    );
+END;
+$$;
+
+
+
+
+--GET all users
+
+CREATE OR REPLACE FUNCTION nutrition.admin_get_all_users()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+BEGIN
+    -- Проверка, что текущий пользователь — админ
+    IF current_setting('app.current_user_role', true) <> 'app_admin' THEN
+        RAISE EXCEPTION 'Access denied: admin only';
+    END IF;
+
+    -- Возвращаем JSON с массивом пользователей
+    RETURN jsonb_build_object(
+        'success', true,
+        'data', (
+            SELECT jsonb_agg(user_row)
+            FROM (
+                SELECT jsonb_build_object(
+                    'id', id,
+                    'username', username,
+                    'role', role,
+                    'dailyCalorieLimit', daily_cal_limit,
+                    'weeklyCalorieLimit', weekly_cal_limit,
+                    'createdAt', create_at
+                ) AS user_row
+                FROM nutrition.users
+                ORDER BY id
+            ) AS sub
+        )
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Failed to fetch users: ' || SQLERRM
+    );
+END;
+$$;
+
+
+--CREATE admin
+CREATE OR REPLACE FUNCTION nutrition.admin_create_admin(
+    p_username TEXT,
+    p_password_hash TEXT,
+    p_daily_cal_limit INT DEFAULT 2500,
+    p_weekly_cal_limit INT DEFAULT 17500
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+DECLARE
+    new_admin_id INT;
+BEGIN
+    IF current_setting('app.current_user_role', true) <> 'app_admin' THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    INSERT INTO nutrition.users (
+        username,
+        password_hash,
+        daily_cal_limit,
+        weekly_cal_limit,
+        role
+    )
+    VALUES (
+        p_username,
+        p_password_hash,
+        p_daily_cal_limit,
+        p_weekly_cal_limit,
+        'app_admin'
+    )
+    RETURNING id INTO new_admin_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'adminId', new_admin_id,
+        'message', 'Administrator created'
+    );
+
+EXCEPTION
+    WHEN unique_violation THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Username already exists'
+        );
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Failed to create administrator: ' || SQLERRM
+        );
+END;
+$$;
+
+--DELETE admin
+CREATE OR REPLACE FUNCTION nutrition.admin_delete_admin(
+    p_admin_id INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+DECLARE
+    admin_count INT;
+BEGIN
+    IF current_setting('app.current_user_role', true) <> 'app_admin' THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM nutrition.users
+        WHERE id = p_admin_id AND role = 'app_admin'
+    ) THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Administrator not found'
+        );
+    END IF;
+
+    SELECT COUNT(*) INTO admin_count
+    FROM nutrition.users
+    WHERE role = 'app_admin';
+
+    IF admin_count <= 1 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Cannot delete the last administrator'
+        );
+    END IF;
+
+    DELETE FROM nutrition.users WHERE id = p_admin_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'Administrator deleted'
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Failed to delete administrator: ' || SQLERRM
+    );
+END;
+$$;
+
+
+--CREATE user
+CREATE OR REPLACE FUNCTION nutrition.admin_create_user(
+    p_username TEXT,
+    p_password_hash TEXT,
+    p_daily_cal_limit INT,
+    p_weekly_cal_limit INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+DECLARE
+    new_user_id INT;
+BEGIN
+    IF current_setting('app.current_user_role', true) <> 'app_admin' THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    INSERT INTO nutrition.users (
+        username,
+        password_hash,
+        daily_cal_limit,
+        weekly_cal_limit,
+        role
+    )
+    VALUES (
+        p_username,
+        p_password_hash,
+        p_daily_cal_limit,
+        p_weekly_cal_limit,
+        'app_user'
+    )
+    RETURNING id INTO new_user_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'userId', new_user_id,
+        'message', 'User created'
+    );
+
+EXCEPTION
+    WHEN unique_violation THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Username already exists'
+        );
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Failed to create user: ' || SQLERRM
+        );
+END;
+$$;
+
+
+--UPDATE user
+CREATE OR REPLACE FUNCTION nutrition.admin_update_user(
+    p_user_id INT,
+    p_daily_cal_limit INT,
+    p_weekly_cal_limit INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+BEGIN
+    IF current_setting('app.current_user_role', true) <> 'app_admin' THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    UPDATE nutrition.users
+    SET daily_cal_limit = p_daily_cal_limit,
+        weekly_cal_limit = p_weekly_cal_limit
+    WHERE id = p_user_id;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'User not found'
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'User updated'
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Failed to update user: ' || SQLERRM
+    );
+END;
+$$;
+
+
+
+--DELETE user
+CREATE OR REPLACE FUNCTION nutrition.admin_delete_user(
+    p_user_id INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+DECLARE
+    user_role TEXT;
+BEGIN
+    IF current_setting('app.current_user_role', true) <> 'app_admin' THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    SELECT role INTO user_role
+    FROM nutrition.users
+    WHERE id = p_user_id;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'User not found'
+        );
+    END IF;
+
+    IF user_role = 'app_admin' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Use admin_delete_admin to delete administrators'
+        );
+    END IF;
+
+    DELETE FROM nutrition.users WHERE id = p_user_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'User deleted'
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Failed to delete user: ' || SQLERRM
+    );
+END;
+$$;
+
+
+
+
 --GET /api/profile
 CREATE OR REPLACE FUNCTION nutrition.get_my_profile()
 RETURNS JSONB
@@ -147,6 +534,52 @@ EXCEPTION WHEN OTHERS THEN
     );
 END;
 $$;
+
+--GET product by name
+CREATE OR REPLACE FUNCTION nutrition.get_product_by_name(
+    p_name TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = nutrition, pg_temp
+AS $$
+BEGIN
+    RETURN jsonb_build_object(
+        'success', true,
+        'data', (
+            SELECT jsonb_agg(
+                jsonb_build_object(
+                    'id', p.id,
+                    'name', p.name,
+                    'caloriesPerPortion', p.calories_per_portion,
+                    'portionSize', p.portion_size,
+                    'portionUnit', p.portion_unit,
+                    'protein', p.protein,
+                    'fat', p.fat,
+                    'carbs', p.carbs,
+                    'isPublic', p.is_public,
+                    'createdBy', p.created_by
+                )
+            )
+            FROM nutrition.products p
+            WHERE p.name ILIKE '%' || p_name || '%'
+              AND (
+                    p.is_public = TRUE
+                    OR p.created_by = current_setting('app.current_user_id')::INT
+                  )
+        )
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Failed to fetch product by name: ' || SQLERRM
+    );
+END;
+$$;
+
+
 
 --POST /api/products
 CREATE OR REPLACE FUNCTION nutrition.create_product(
@@ -439,7 +872,6 @@ END;
 $$;
 
 --POST /api/menu/generate-week
-
 CREATE OR REPLACE FUNCTION nutrition.generate_weekly_menu(p_week_start DATE)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -452,14 +884,13 @@ DECLARE
 BEGIN
     FOR i IN 0..6 LOOP
         day_date := p_week_start + i;
-
-        -- Простейшая логика: выбираем случайные продукты из меню пользователя, чтобы не превышать лимит
+		
         INSERT INTO nutrition.weekly_menu(user_id, menu_date, product_id)
         SELECT current_setting('app.current_user_id')::int, day_date, p.id
         FROM nutrition.menu_items mi
         JOIN nutrition.products p ON p.id = mi.product_id
         ORDER BY random()
-        LIMIT 5;  -- пример: 5 продуктов в день
+        LIMIT 5; --daily products limit
     END LOOP;
 
     RETURN jsonb_build_object(
